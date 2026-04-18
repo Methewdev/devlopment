@@ -21,11 +21,11 @@ def predict(text):
 
     label_map = {
         
-        "senang": 0
-        "marah": 1
-        "sedih": 2
-        "kecewa": 3
-        "netral": 4
+        "senang": 0,
+        "marah": 1,
+        "sedih": 2,
+        "kecewa": 3,
+        "netral": 4,
     }
 
     return label_map[pred]
