@@ -66,35 +66,45 @@ def predict(text):
 def detect_sarcasm(text, emotion):
     text = text.lower()
 
-    positive_words = ["bagus", "mantap", "keren", "hebat", "luar biasa", "baik"]
-    negative_words = ["error", "gagal", "lambat", "lemot", "buruk", "jelek", "tidak bisa", "login gagal"]
+    positive_words = ["bagus", "mantap", "keren", "hebat", "luar biasa"]
+    negative_words = ["error", "gagal", "lambat", "lemot", "tidak bisa", "login gagal"]
 
     implicit_patterns = [
         "menguji kesabaran",
         "terima kasih ya",
-        "luar biasa sekali",
         "hebat ya"
     ]
 
     score = 0
 
-    # implicit
+    # implicit sarcasm
     for p in implicit_patterns:
         if p in text:
             score += 3
 
-    # pos + neg
+    # positive + negative
     for pos in positive_words:
         for neg in negative_words:
             if pos in text and neg in text:
                 score += 2
 
-    # hybrid (pakai emosi)
+    # hybrid emotion
     if emotion in ["senang", "netral"]:
         if any(n in text for n in negative_words):
             score += 2
 
     return "Ya" if score >= 2 else "Tidak"
+
+# =========================
+# LOAD CSV (FIX ENCODING)
+# =========================
+def load_csv(uploaded_file):
+    for enc in ["utf-8", "latin-1", "cp1252"]:
+        try:
+            return pd.read_csv(uploaded_file, encoding=enc)
+        except:
+            continue
+    return None
 
 # =========================
 # SINGLE INPUT
@@ -118,13 +128,16 @@ if st.button("🔍 Analisis"):
             unsafe_allow_html=True
         )
 
-        st.write(f"Confidence: {confidence:.2f}")
+        st.write(f"Confidence Score: {confidence:.2f}")
 
-        st.markdown("### 🎭 Sarkasme")
+        st.markdown("### 🎭 Deteksi Sarkasme")
         if sarcasm == "Ya":
             st.error("😏 Sarkasme Terdeteksi")
         else:
             st.success("🙂 Tidak Sarkasme")
+
+    else:
+        st.warning("⚠️ Masukkan teks terlebih dahulu")
 
 # =========================
 # BULK UPLOAD
@@ -132,10 +145,14 @@ if st.button("🔍 Analisis"):
 st.markdown("---")
 st.markdown("## 📂 Analisis Bulk (CSV)")
 
-uploaded_file = st.file_uploader("Upload file CSV (harus ada kolom 'content')", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV (harus ada kolom 'content')", type=["csv"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    df = load_csv(uploaded_file)
+
+    if df is None:
+        st.error("❌ File tidak bisa dibaca (encoding error)")
+        st.stop()
 
     if "content" not in df.columns:
         st.error("❌ Kolom 'content' tidak ditemukan")
@@ -164,9 +181,7 @@ if uploaded_file:
             csv = df.to_csv(index=False).encode("utf-8")
             st.download_button("📥 Download Hasil", csv, "hasil_analisis.csv")
 
-            # =========================
-            # VISUALISASI
-            # =========================
+            # grafik
             st.markdown("## 📊 Distribusi Emosi")
             st.bar_chart(df["emotion"].value_counts())
 
