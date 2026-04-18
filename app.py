@@ -1,14 +1,14 @@
-
 import streamlit as st
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-st.title("Analisis Sentimen & Emosi")
+st.title("Analisis Sentimen")
 
 @st.cache_resource
 def load_model():
-    tokenizer = AutoTokenizer.from_pretrained("model_kamu")
-    model = AutoModelForSequenceClassification.from_pretrained("model_kamu")
+    model_name = "cardiffnlp/twitter-roberta-base-sentiment"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
     return tokenizer, model
 
 tokenizer, model = load_model()
@@ -27,23 +27,10 @@ def predict(text):
 
     return label_map[pred]
 
-# UI input
+# UI
 user_input = st.text_area("Masukkan komentar:")
 
 if st.button("Prediksi"):
     if user_input:
         hasil = predict(user_input)
         st.success(f"Hasil: {hasil}")
-        import pandas as pd
-
-uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
-
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-
-    if st.button("Prediksi Bulk"):
-        df['hasil'] = df['ulasan'].apply(predict)
-        st.dataframe(df)
-
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button("Download hasil", csv, "hasil.csv")
