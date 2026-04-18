@@ -1,6 +1,7 @@
 import streamlit as st
 import torch
 import re
+import pandas as pd
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # =========================
@@ -22,7 +23,7 @@ def load_model():
 tokenizer, model = load_model()
 
 # =========================
-# PREPROCESS (SAMA DENGAN TRAINING)
+# PREPROCESS
 # =========================
 def preprocess(text):
     text = str(text).lower()
@@ -49,7 +50,6 @@ def get_emotion_style(label):
 # =========================
 def predict(text):
     clean_text = preprocess(text)
-
     inputs = tokenizer(clean_text, return_tensors="pt", truncation=True, padding=True)
     outputs = model(**inputs)
 
@@ -58,25 +58,17 @@ def predict(text):
     confidence = torch.max(probs).item()
 
     label = model.config.id2label[pred]
-
     return label, confidence
 
 # =========================
-# DETEKSI SARKASME (HYBRID + IMPLICIT 🔥)
+# DETEKSI SARKASME (HYBRID)
 # =========================
 def detect_sarcasm(text, emotion):
     text = text.lower()
 
-    positive_words = [
-        "bagus", "mantap", "keren", "hebat", "luar biasa", "baik"
-    ]
+    positive_words = ["bagus", "mantap", "keren", "hebat", "luar biasa", "baik"]
+    negative_words = ["error", "gagal", "lambat", "lemot", "buruk", "jelek", "tidak bisa", "login gagal"]
 
-    negative_words = [
-        "error", "gagal", "lambat", "lemot", "buruk", "jelek",
-        "tidak bisa", "login gagal"
-    ]
-
-    # 🔥 implicit sarcasm (penting)
     implicit_patterns = [
         "menguji kesabaran",
         "terima kasih ya",
@@ -86,80 +78,97 @@ def detect_sarcasm(text, emotion):
 
     score = 0
 
-    # RULE 1: implicit sarcasm
+    # implicit
     for p in implicit_patterns:
         if p in text:
             score += 3
 
-    # RULE 2: positive + negative
+    # pos + neg
     for pos in positive_words:
         for neg in negative_words:
             if pos in text and neg in text:
                 score += 2
 
-    # RULE 3: emotion contradiction (HYBRID)
+    # hybrid (pakai emosi)
     if emotion in ["senang", "netral"]:
         if any(n in text for n in negative_words):
             score += 2
 
-    if score >= 2:
-        return "😏 Sarkasme Terdeteksi"
-    
-    return "🙂 Tidak Sarkasme"
+    return "Ya" if score >= 2 else "Tidak"
 
 # =========================
-# INPUT USER
+# SINGLE INPUT
 # =========================
-st.markdown("### ✍️ Masukkan komentar")
-user_input = st.text_area("Contoh: Pelayanan mantap banget, tapi sering error")
+st.markdown("## ✍️ Analisis Satu Kalimat")
+user_input = st.text_area("Masukkan komentar")
 
-# =========================
-# BUTTON
-# =========================
 if st.button("🔍 Analisis"):
-    if user_input.strip() != "":
-        
-        # Prediksi emosi
+    if user_input.strip():
         hasil, confidence = predict(user_input)
         label_text, color = get_emotion_style(hasil)
+        sarcasm = detect_sarcasm(user_input, hasil)
 
-        # Deteksi sarkasme (FIXED)
-        sarcasm_result = detect_sarcasm(user_input, hasil)
-
-        # =========================
-        # OUTPUT EMOSI
-        # =========================
         st.markdown("### 📌 Hasil Emosi")
-
         st.markdown(
             f"""
-            <div style="
-                background-color:{color};
-                padding:20px;
-                border-radius:12px;
-                text-align:center;
-                color:white;
-                font-size:26px;
-                font-weight:bold;
-                box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
-            ">
+            <div style="background:{color};padding:20px;border-radius:10px;text-align:center;color:white;font-size:24px">
                 {label_text}
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        st.markdown(f"**Confidence Score:** {confidence:.2f}")
+        st.write(f"Confidence: {confidence:.2f}")
 
-        # =========================
-        # OUTPUT SARKASME
-        # =========================
-        st.markdown("### 🎭 Deteksi Sarkasme")
-
-        if "Terdeteksi" in sarcasm_result:
-            st.error(sarcasm_result)
+        st.markdown("### 🎭 Sarkasme")
+        if sarcasm == "Ya":
+            st.error("😏 Sarkasme Terdeteksi")
         else:
-            st.success(sarcasm_result)
+            st.success("🙂 Tidak Sarkasme")
 
+# =========================
+# BULK UPLOAD
+# =========================
+st.markdown("---")
+st.markdown("## 📂 Analisis Bulk (CSV)")
+
+uploaded_file = st.file_uploader("Upload file CSV (harus ada kolom 'content')", type=["csv"])
+
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+
+    if "content" not in df.columns:
+        st.error("❌ Kolom 'content' tidak ditemukan")
     else:
-        st.warning("⚠️ Masukkan teks terlebih dahulu")
+        if st.button("🚀 Proses Bulk"):
+            emotions = []
+            sarcasms = []
+            confidences = []
+
+            for text in df["content"]:
+                emotion, conf = predict(text)
+                sarcasm = detect_sarcasm(text, emotion)
+
+                emotions.append(emotion)
+                sarcasms.append(sarcasm)
+                confidences.append(conf)
+
+            df["emotion"] = emotions
+            df["sarcasm"] = sarcasms
+            df["confidence"] = confidences
+
+            st.success("✅ Selesai diproses")
+            st.dataframe(df)
+
+            # download
+            csv = df.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download Hasil", csv, "hasil_analisis.csv")
+
+            # =========================
+            # VISUALISASI
+            # =========================
+            st.markdown("## 📊 Distribusi Emosi")
+            st.bar_chart(df["emotion"].value_counts())
+
+            st.markdown("## 🎭 Distribusi Sarkasme")
+            st.bar_chart(df["sarcasm"].value_counts())
