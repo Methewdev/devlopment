@@ -19,14 +19,14 @@ def predict(text):
     probs = torch.softmax(outputs.logits, dim=1)
     pred = torch.argmax(probs).item()
 
-  label_map = {
-    0: "senang",
-    1: "marah",
-    2: "sedih",
-    3: "kecewa",
-    4: "netral"
-}
-st.write("Pred:", pred)
+    label_map = {
+        0: "senang",
+        1: "marah",
+        2: "sedih",
+        3: "kecewa",
+        4: "netral"
+    }
+
     return label_map[pred]
 
 # UI
