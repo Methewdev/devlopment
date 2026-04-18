@@ -20,9 +20,12 @@ def predict(text):
     pred = torch.argmax(probs).item()
 
     label_map = {
-        0: "Negatif",
-        1: "Netral",
-        2: "Positif"
+        
+        "senang": 0
+        "marah": 1
+        "sedih": 2
+        "kecewa": 3
+        "netral": 4
     }
 
     return label_map[pred]
