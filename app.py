@@ -1,12 +1,12 @@
 import streamlit as st
 import torch
+import re
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # =========================
 # CONFIG
 # =========================
 st.set_page_config(page_title="Analisis Emosi & Sarkasme", layout="centered")
-
 st.title("📊 Analisis Sentimen, Emosi & Sarkasme")
 
 # =========================
@@ -20,6 +20,16 @@ def load_model():
     return tokenizer, model
 
 tokenizer, model = load_model()
+
+# =========================
+# PREPROCESS (SAMA DENGAN TRAINING)
+# =========================
+def preprocess(text):
+    text = str(text).lower()
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'[^a-zA-Z\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 # =========================
 # STYLE EMOSI
@@ -38,54 +48,63 @@ def get_emotion_style(label):
 # PREDICT EMOSI
 # =========================
 def predict(text):
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-    outputs = model(**inputs)
-    probs = torch.softmax(outputs.logits, dim=1)
+    clean_text = preprocess(text)
 
+    inputs = tokenizer(clean_text, return_tensors="pt", truncation=True, padding=True)
+    outputs = model(**inputs)
+
+    probs = torch.softmax(outputs.logits, dim=1)
     pred = torch.argmax(probs).item()
     confidence = torch.max(probs).item()
 
-    label_map = {
-        0: "senang",
-        1: "marah",
-        2: "sedih",
-        3: "kecewa",
-        4: "netral"
-    }
+    label = model.config.id2label[pred]
 
-    return label_map[pred], confidence
+    return label, confidence
 
 # =========================
-# DETEKSI SARKASME (RULE-BASED)
+# DETEKSI SARKASME (HYBRID + IMPLICIT 🔥)
 # =========================
-def detect_sarcasm(text):
-    text_lower = text.lower()
+def detect_sarcasm(text, emotion):
+    text = text.lower()
 
-    sarcasm_keywords = [
-        "ya bagus banget",
-        "hebat sekali",
-        "mantap banget",
+    positive_words = [
+        "bagus", "mantap", "keren", "hebat", "luar biasa", "baik"
+    ]
+
+    negative_words = [
+        "error", "gagal", "lambat", "lemot", "buruk", "jelek",
+        "tidak bisa", "login gagal"
+    ]
+
+    # 🔥 implicit sarcasm (penting)
+    implicit_patterns = [
+        "menguji kesabaran",
         "terima kasih ya",
         "luar biasa sekali",
-        "keren banget",
-        "top banget"
+        "hebat ya"
     ]
 
-    negative_context = [
-        "error",
-        "lama",
-        "buruk",
-        "jelek",
-        "gagal",
-        "lemot",
-        "tidak bisa"
-    ]
+    score = 0
 
-    for s in sarcasm_keywords:
-        for n in negative_context:
-            if s in text_lower and n in text_lower:
-                return "😏 Sarkasme Terdeteksi"
+    # RULE 1: implicit sarcasm
+    for p in implicit_patterns:
+        if p in text:
+            score += 3
 
+    # RULE 2: positive + negative
+    for pos in positive_words:
+        for neg in negative_words:
+            if pos in text and neg in text:
+                score += 2
+
+    # RULE 3: emotion contradiction (HYBRID)
+    if emotion in ["senang", "netral"]:
+        if any(n in text for n in negative_words):
+            score += 2
+
+    if score >= 2:
+        return "😏 Sarkasme Terdeteksi"
+    
     return "🙂 Tidak Sarkasme"
 
 # =========================
@@ -104,8 +123,8 @@ if st.button("🔍 Analisis"):
         hasil, confidence = predict(user_input)
         label_text, color = get_emotion_style(hasil)
 
-        # Deteksi sarkasme
-        sarcasm_result = detect_sarcasm(user_input)
+        # Deteksi sarkasme (FIXED)
+        sarcasm_result = detect_sarcasm(user_input, hasil)
 
         # =========================
         # OUTPUT EMOSI
