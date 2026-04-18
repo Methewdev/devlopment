@@ -3,10 +3,11 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # =========================
-# TITLE
+# CONFIG
 # =========================
-st.set_page_config(page_title="Analisis Emosi", layout="centered")
-st.title("📊 Analisis Sentimen & Emosi")
+st.set_page_config(page_title="Analisis Emosi & Sarkasme", layout="centered")
+
+st.title("📊 Analisis Sentimen, Emosi & Sarkasme")
 
 # =========================
 # LOAD MODEL
@@ -34,7 +35,7 @@ def get_emotion_style(label):
     return styles.get(label, ("❓ Tidak diketahui", "#000000"))
 
 # =========================
-# PREDICT FUNCTION
+# PREDICT EMOSI
 # =========================
 def predict(text):
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
@@ -44,7 +45,6 @@ def predict(text):
     pred = torch.argmax(probs).item()
     confidence = torch.max(probs).item()
 
-    # Mapping sesuai training kamu
     label_map = {
         0: "senang",
         1: "marah",
@@ -56,23 +56,62 @@ def predict(text):
     return label_map[pred], confidence
 
 # =========================
+# DETEKSI SARKASME (RULE-BASED)
+# =========================
+def detect_sarcasm(text):
+    text_lower = text.lower()
+
+    sarcasm_keywords = [
+        "ya bagus banget",
+        "hebat sekali",
+        "mantap banget",
+        "terima kasih ya",
+        "luar biasa sekali",
+        "keren banget",
+        "top banget"
+    ]
+
+    negative_context = [
+        "error",
+        "lama",
+        "buruk",
+        "jelek",
+        "gagal",
+        "lemot",
+        "tidak bisa"
+    ]
+
+    for s in sarcasm_keywords:
+        for n in negative_context:
+            if s in text_lower and n in text_lower:
+                return "😏 Sarkasme Terdeteksi"
+
+    return "🙂 Tidak Sarkasme"
+
+# =========================
 # INPUT USER
 # =========================
 st.markdown("### ✍️ Masukkan komentar")
-user_input = st.text_area("Contoh: Pelayanan sangat ramah dan cepat")
+user_input = st.text_area("Contoh: Pelayanan mantap banget, tapi sering error")
 
 # =========================
 # BUTTON
 # =========================
-if st.button("🔍 Prediksi"):
+if st.button("🔍 Analisis"):
     if user_input.strip() != "":
+        
+        # Prediksi emosi
         hasil, confidence = predict(user_input)
-
         label_text, color = get_emotion_style(hasil)
 
-        st.markdown("### 📌 Hasil Analisis")
+        # Deteksi sarkasme
+        sarcasm_result = detect_sarcasm(user_input)
 
-        # BOX HASIL
+        # =========================
+        # OUTPUT EMOSI
+        # =========================
+        st.markdown("### 📌 Hasil Emosi")
+
         st.markdown(
             f"""
             <div style="
@@ -91,8 +130,17 @@ if st.button("🔍 Prediksi"):
             unsafe_allow_html=True
         )
 
-        # CONFIDENCE
         st.markdown(f"**Confidence Score:** {confidence:.2f}")
+
+        # =========================
+        # OUTPUT SARKASME
+        # =========================
+        st.markdown("### 🎭 Deteksi Sarkasme")
+
+        if "Terdeteksi" in sarcasm_result:
+            st.error(sarcasm_result)
+        else:
+            st.success(sarcasm_result)
 
     else:
         st.warning("⚠️ Masukkan teks terlebih dahulu")
