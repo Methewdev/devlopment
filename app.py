@@ -6,7 +6,7 @@ st.title("Analisis Sentimen")
 
 @st.cache_resource
 def load_model():
-    model_name = "model_name = "envidevelopment/sentiment-banking"
+    model_name = "envidevelopment/sentiment-banking"
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(model_name)
     return tokenizer, model
