@@ -46,7 +46,7 @@ def get_emotion_style(label):
     return styles.get(label, ("❓ Tidak diketahui", "#000000"))
 
 # =========================
-# PREDICT EMOSI
+# PREDICT
 # =========================
 def predict(text):
     clean_text = preprocess(text)
@@ -72,38 +72,37 @@ def detect_sarcasm(text, emotion):
     implicit_patterns = [
         "menguji kesabaran",
         "terima kasih ya",
-        "hebat ya"
+        "hebat ya",
+        "luar biasa sekali"
     ]
 
     score = 0
 
     # implicit sarcasm
-    for p in implicit_patterns:
-        if p in text:
-            score += 3
+    if any(p in text for p in implicit_patterns):
+        score += 3
 
     # positive + negative
-    for pos in positive_words:
-        for neg in negative_words:
-            if pos in text and neg in text:
-                score += 2
+    if any(p in text for p in positive_words) and any(n in text for n in negative_words):
+        score += 2
 
     # hybrid emotion
-    if emotion in ["senang", "netral"]:
-        if any(n in text for n in negative_words):
-            score += 2
+    if emotion in ["senang", "netral"] and any(n in text for n in negative_words):
+        score += 2
 
     return "Ya" if score >= 2 else "Tidak"
 
 # =========================
-# LOAD CSV (FIX ENCODING)
+# LOAD CSV (SUPER ROBUST)
 # =========================
 def load_csv(uploaded_file):
     for enc in ["utf-8", "latin-1", "cp1252"]:
-        try:
-            return pd.read_csv(uploaded_file, encoding=enc)
-        except:
-            continue
+        for sep in [",", ";"]:
+            try:
+                df = pd.read_csv(uploaded_file, encoding=enc, sep=sep)
+                return df
+            except:
+                continue
     return None
 
 # =========================
@@ -145,24 +144,34 @@ if st.button("🔍 Analisis"):
 st.markdown("---")
 st.markdown("## 📂 Analisis Bulk (CSV)")
 
-uploaded_file = st.file_uploader("Upload CSV (harus ada kolom 'content')", type=["csv"])
+uploaded_file = st.file_uploader("Upload CSV (kolom: content)", type=["csv"])
 
 if uploaded_file:
     df = load_csv(uploaded_file)
 
     if df is None:
-        st.error("❌ File tidak bisa dibaca (encoding error)")
+        st.error("❌ File tidak bisa dibaca. Gunakan CSV UTF-8 dari Excel.")
         st.stop()
 
-    if "content" not in df.columns:
-        st.error("❌ Kolom 'content' tidak ditemukan")
+    st.write("Preview data:")
+    st.dataframe(df.head())
+
+    # auto detect kolom teks
+    possible_cols = ["content", "text", "ulasan", "review"]
+    text_col = None
+
+    for col in possible_cols:
+        if col in df.columns:
+            text_col = col
+            break
+
+    if text_col is None:
+        st.error("❌ Kolom teks tidak ditemukan (gunakan: content / text / ulasan)")
     else:
         if st.button("🚀 Proses Bulk"):
-            emotions = []
-            sarcasms = []
-            confidences = []
+            emotions, sarcasms, confidences = [], [], []
 
-            for text in df["content"]:
+            for text in df[text_col]:
                 emotion, conf = predict(text)
                 sarcasm = detect_sarcasm(text, emotion)
 
@@ -174,7 +183,7 @@ if uploaded_file:
             df["sarcasm"] = sarcasms
             df["confidence"] = confidences
 
-            st.success("✅ Selesai diproses")
+            st.success("✅ Proses selesai")
             st.dataframe(df)
 
             # download
