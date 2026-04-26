@@ -21,7 +21,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # =========================
 @st.cache_resource
 def load_model():
-    MODEL_NAME = "username/emotion-indobert"  # ⚠️ GANTI USERNAME
+    MODEL_NAME = "envidevelopment/model2  # ⚠️ GANTI USERNAME
 
     try:
         with st.spinner("🔄 Loading model dari HuggingFace..."):
