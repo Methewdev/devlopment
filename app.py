@@ -17,11 +17,15 @@ st.title("📊 Analisis Emosi & Segmentasi Nasabah (Transformer)")
 # LOAD MODEL
 # =========================
 @st.cache_resource
+@st.cache_resource
 def load_model():
-    model_path = "model_emotion"
+    model_path = "username/emotion-indobert"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     model = AutoModelForSequenceClassification.from_pretrained(model_path)
+
+    device = torch.device("cpu")
+    model.to(device)
 
     return tokenizer, model
 
