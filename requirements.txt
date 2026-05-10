@@ -1,8 +1,8 @@
-streamlit==1.33.0
-torch==2.1.0
-transformers==4.36.2
-scikit-learn==1.3.2
+streamlit
+transformers
+torch
 pandas
-numpy
-matplotlib
+scikit-learn
+sentencepiece
+sastrawi
 huggingface_hub
